@@ -1,8 +1,7 @@
 import numpy as np
 import sets
 import sys
-import heapq
-import itertools
+
 
 # a vector is represented via a tuple
 
@@ -55,6 +54,8 @@ def detect_outliers(U, nOutliers, k, alpha=0.001, beta=0.01, gamma=0.8):
         print '>>>> i_iter =', i_iter
         print '|U| =', len(U), 'gamma =', gamma
         # sample centers
+        nSamples = int(alpha * len(U)) + 1
+        print 'nSamples =', nSamples
         S = np.random.choice(U, int(alpha * N))
         assign = {}
         obj = {id(x):x for x in U}
@@ -63,8 +64,9 @@ def detect_outliers(U, nOutliers, k, alpha=0.001, beta=0.01, gamma=0.8):
         vt = [dist(obj[i], y) for i, y in assign.items()]
         t = int(gamma * len(U))
         v = sorted(vt)[t]
+        print 't =', t, 'v =', v
         U = [x for x in U if dist(x, assign[id(x)]) >= v]
-        gamma =  gamma - gamma**4
+        # gamma =  gamma - gamma**4
         
     #### phase two
     arr = [(k_th_dist(x, U_fixed, k), x) for x in U]
@@ -138,15 +140,15 @@ def read_from_file(fileName, n_skip = 1):
     return data, outliers
 
 if __name__ == '__main__':
-    U, outliers = read_from_file(sys.argv[1])
-    # U, outliers = get_data(10000, 10) # return a list
+    # U, outliers = read_from_file(sys.argv[1])
+    U, outliers = get_data(1000, 10) 
     nOutliers = len(outliers)
     print 'median =', np.median(U)
     
     # U.extend([5000 * i for i in xrange(1, nOutliers + 1)])
 
 #    outliers_est, config = successive_sampling(U, nOutliers, 5, 0.9)
-    outliers_est = detect_outliers(U, nOutliers, 2, 0.001, 0.05, 0.8)
+    outliers_est = detect_outliers(U, nOutliers, 10, 0.005, 0.02, 0.8)
     outliers = sets.Set(outliers)
     outliers_est = sets.Set(outliers_est)
     print 'Ext:', sorted(outliers)
