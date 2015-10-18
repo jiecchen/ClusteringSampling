@@ -20,12 +20,14 @@ def find_nearest(x, S):
             best = y
     return best
 
-def get_data(n=1000, k=20):
+def get_data(n=1000, k=20, nOutliers=10):
     ct = [i * 100 for i in xrange(k)]
     rpt = n / k;
-    arr = np.concatenate([np.random.normal(c, 5, rpt) for c in ct])
-    arr = [(int(x)) for x in arr]
-    return arr, ct
+    arr = np.concatenate([np.random.normal(c, 1, rpt) for c in ct])
+    arr = [(x) for x in arr]
+    ot = [i * 10000 for i in xrange(1, nOutliers + 1)]
+    arr.extend(ot)
+    return arr, ot
 
 
 
@@ -38,50 +40,36 @@ def try_append(x, y, lst, M):
             lst[j] = x
 
 def k_th_dist(y, lst, k):
-    if len(lst) < k:
-        return 1e10
-    max([dist(y, x) for x in lst])
+    arr = np.array([dist(y, x) for x in lst])
+    return sorted(arr)[k-1]
             
-def detect_outliers(U, nOutliers, k, alpha=0.001, beta=0.05, M=20):
+def detect_outliers(U, nOutliers, k, alpha=0.001, beta=0.01, gamma=0.8):
     ##### phase one
     # alpha << beta
     N = len(U)
-    M_fixed = M
     U_fixed = U
+    
     i_iter = 0
     while len(U) > beta * N:
         i_iter += 1
-        print 'i_iter =', i_iter
+        print '>>>> i_iter =', i_iter
+        print '|U| =', len(U), 'gamma =', gamma
         # sample centers
         S = np.random.choice(U, int(alpha * N))
-        container = {}
+        assign = {}
+        obj = {id(x):x for x in U}
         for x in U:
-            y = find_nearest(x, S)
-            if id(y) not in container:
-                container[id(y)] = []
-            try_append(x, y, container[id(y)], M)
-        S = S.tolist()
-        S.extend(itertools.chain(*container.values()))
-        st = sets.Set([id(x) for x in S])
-        U = [x for x in U if id(x) not in st]
-        M = M_fixed * len(U) / N + 1
-    container = {}
+            assign[id(x)] = find_nearest(x, S)
+        vt = [dist(obj[i], y) for i, y in assign.items()]
+        t = int(gamma * len(U))
+        v = sorted(vt)[t]
+        U = [x for x in U if dist(x, assign[id(x)]) >= v]
+        gamma =  gamma - gamma**4
+        
     #### phase two
-    top_n = []
-    
-    obj = {id(x):x  for x in U}
-    for x in U_fixed:
-        y = find_nearest(x, U)
-        if id(y) not in container:
-            container[id(y)] = []
-            try_append(x, y, container[id(y)], k)
+    arr = [(k_th_dist(x, U_fixed, k), x) for x in U]
+    return [y for x, y in sorted(arr)[-nOutliers:]]
 
-    pairs = []
-    for y_id, lst in container.items():
-        y = obj[y_id]
-        pairs.append((k_th_dist(y, lst, k), y)) 
-    pairs = sorted(pairs)
-    return pairs[-nOutliers:]
         
         
             
@@ -150,18 +138,17 @@ def read_from_file(fileName, n_skip = 1):
     return data, outliers
 
 if __name__ == '__main__':
-    # U, outliers = read_from_file(sys.argv[1])
-    U, outliers = get_data(1000, 10) # return a list
+    U, outliers = read_from_file(sys.argv[1])
+    # U, outliers = get_data(10000, 10) # return a list
     nOutliers = len(outliers)
     print 'median =', np.median(U)
     
     # U.extend([5000 * i for i in xrange(1, nOutliers + 1)])
 
 #    outliers_est, config = successive_sampling(U, nOutliers, 5, 0.9)
-    outliers_est = detect_outliers(U, nOutliers, 2)
+    outliers_est = detect_outliers(U, nOutliers, 2, 0.001, 0.05, 0.8)
     outliers = sets.Set(outliers)
     outliers_est = sets.Set(outliers_est)
     print 'Ext:', sorted(outliers)
     print 'Est:', sorted(outliers_est)    
-    print 'diff:', outliers.difference(outliers_est)
-    
+
