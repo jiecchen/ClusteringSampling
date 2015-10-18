@@ -1,6 +1,9 @@
 import numpy as np
-import sets
 import sys
+import os
+
+
+
 
 
 # a vector is represented via a tuple
@@ -41,7 +44,49 @@ def try_append(x, y, lst, M):
 def k_th_dist(y, lst, k):
     arr = np.array([dist(y, x) for x in lst])
     return sorted(arr)[k-1]
-            
+
+
+def find_nearest_k(x, U, k):
+    """
+    find nearest k neighbors of x from U
+    """
+    arr = [(dist(x, y), y) for y in U]
+    arr = sorted(arr)[:k]
+    S = [y for x, y in arr]
+    return dist(S[-1], x), S 
+
+def outliers_DBnk(U, n, k, alpha, beta):
+    """
+    Outliers Detection using DB^n_k definition
+    """
+    ###### phase one ####################
+    N = len(U)
+    U_bak = U
+    i_iter = 0
+    while len(U) > beta * N:
+        i_iter += 1
+        print '>>>>> i_iter =', i_iter
+        print '|U| =', len(U)
+        # sample centers
+        m = int(alpha * len(U)) + 1
+        print '|S| =', m
+        S = np.random.choice(U, m)
+        # for each s in S, find its nearest k neighbors
+        hyper_balls = [find_nearest_k(s, U, k + 1) for s in S]
+        m = np.median([x for x, y in hyper_balls])
+        # now construct the set that need to be removed
+        to_remove = set([])
+        for d, y in hyper_balls:
+            if d <= m:
+                to_remove |= set([id(x) for x in y])
+        # remove points in to_remove
+        U = [u for u in U if id(u) not in to_remove]
+    ###### phase two #####################
+    arr = [(k_th_dist(x, U_bak, k), x) for x in U]
+    return [y for x, y in sorted(arr)[-n:]]
+    
+    
+
 def detect_outliers(U, nOutliers, k, alpha=0.001, beta=0.01, gamma=0.8):
     ##### phase one
     # alpha << beta
@@ -148,9 +193,9 @@ if __name__ == '__main__':
     # U.extend([5000 * i for i in xrange(1, nOutliers + 1)])
 
 #    outliers_est, config = successive_sampling(U, nOutliers, 5, 0.9)
-    outliers_est = detect_outliers(U, nOutliers, 10, 0.005, 0.02, 0.8)
-    outliers = sets.Set(outliers)
-    outliers_est = sets.Set(outliers_est)
+    outliers_est = outliers_DBnk(U, nOutliers, 4, 0.05, 0.09)
+    outliers = set(outliers)
+    outliers_est = set(outliers_est)
     print 'Ext:', sorted(outliers)
     print 'Est:', sorted(outliers_est)    
 
